@@ -1,19 +1,27 @@
 model:
   latent_dim: 256
   input_channels: 1
-  input_height: 128
-  input_width: 128
+  input_height: 256
+  input_width: 256
 
 training:
   batch_size: 32
   learning_rate: 0.001
-  epochs: 20
+  epochs: 100
   beta: 1.0 # Weight for KLD loss
   device: "mps" # Default to MPS for Apple Silicon
 
 data:
   raw_path: "data/raw"
   processed_path: "data/processed"
+  dataset_type: "BRAIN" # Options: "LUNG", "BRAIN"
   train_split: 0.8
   val_split: 0.1
   test_split: 0.1
+
+vqvae:
+  num_hiddens: 256
+  num_residual_hiddens: 64
+  embedding_dim: 128
+  num_embeddings: 1024
+  commitment_cost: 0.25

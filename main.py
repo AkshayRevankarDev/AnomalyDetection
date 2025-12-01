@@ -32,11 +32,31 @@ def main():
     if args.mode == "train":
         trainer = Trainer(config, dry_run=args.dry_run)
         trainer.train()
+        
+        # Analytics: t-SNE
+        from src.analytics.tsne import LatentSpaceVisualizer
+        visualizer = LatentSpaceVisualizer(trainer.model, trainer.test_loader, trainer.device)
+        visualizer.generate_tsne()
+        
+        # Analytics: Report Card
+        # Filter for sick images in test set
+        test_dataset = trainer.test_loader.dataset
+        sick_indices = [i for i, label in enumerate(test_dataset.labels) if label == 1]
+        sick_paths = [test_dataset.image_paths[i] for i in sick_indices]
+        
+        if len(sick_paths) > 0:
+            # Take first 5 sick images
+            sample_sick_paths = sick_paths[:5]
+            detector = AnomalyDetector(config, model_path="checkpoints/vqvae_best.pth")
+            detector.generate_report_card(sample_sick_paths, output_path="final_report_card.png")
+        else:
+            print("No sick images found in test set for report card.")
+            
     elif args.mode == "inference":
         if not args.image:
             print("Please provide an image path for inference using --image")
             return
-        detector = AnomalyDetector(config)
+        detector = AnomalyDetector(config, model_path="checkpoints/vqvae_best.pth")
         original, recon, diff = detector.detect(args.image)
         
         # Save output for verification

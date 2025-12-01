@@ -32,7 +32,7 @@ ENV/
 .DS_Store
 
 # Project Specific
-data/
+/data/
 checkpoints/
 *.pth
 *.png
@@ -41,3 +41,8 @@ logs/
 # Secrets
 kaggle.json
 secrets.yaml
+
+# User Exclusions
+ARCHITECTURE.md
+test_image.jpg
+temp_upload.png

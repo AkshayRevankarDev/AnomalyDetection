@@ -1,8 +1,11 @@
 import torch
+import torch.nn as nn
+import torch.nn.functional as F
 import torch.optim as optim
 from tqdm import tqdm
 import os
-from src.model.vae import VAE
+from src.model.vqvae import VQVAE
+from src.model.perceptual_loss import PerceptualLoss
 from src.data.loader import get_data_loaders
 
 class Trainer:
@@ -12,10 +15,16 @@ class Trainer:
         self.device = torch.device(config['training']['device'])
         
         # Initialize Model
-        self.model = VAE(
-            input_channels=config['model']['input_channels'],
-            latent_dim=config['model']['latent_dim']
+        self.model = VQVAE(
+            num_hiddens=config['vqvae']['num_hiddens'],
+            num_residual_hiddens=config['vqvae']['num_residual_hiddens'],
+            num_embeddings=config['vqvae']['num_embeddings'],
+            embedding_dim=config['vqvae']['embedding_dim'],
+            commitment_cost=config['vqvae']['commitment_cost']
         ).to(self.device)
+        
+        # Initialize Perceptual Loss
+        self.perceptual_loss = PerceptualLoss(self.device)
         
         # Optimizer
         self.optimizer = optim.Adam(self.model.parameters(), lr=config['training']['learning_rate'])
@@ -24,7 +33,6 @@ class Trainer:
         self.train_loader, self.val_loader, self.test_loader = get_data_loaders(config)
         
         self.epochs = config['training']['epochs']
-        self.beta = config['training']['beta']
         
         # Create checkpoints directory
         os.makedirs("checkpoints", exist_ok=True)
@@ -32,50 +40,66 @@ class Trainer:
     def train_epoch(self, epoch):
         self.model.train()
         train_loss = 0
-        train_mse = 0
-        train_kld = 0
+        train_recon_error = 0
+        train_perplexity = 0
         
         progress_bar = tqdm(self.train_loader, desc=f"Epoch {epoch+1}/{self.epochs} [Train]")
         
-        for batch_idx, data in enumerate(progress_bar):
+        for batch_idx, (data, _) in enumerate(progress_bar):
             data = data.to(self.device)
             self.optimizer.zero_grad()
             
-            recon_batch, mu, logvar = self.model(data)
-            loss, mse, kld = self.model.loss_function(recon_batch, data, mu, logvar, beta=self.beta)
+            # VQVAE forward returns: quantization_loss, reconstruction, perplexity
+            vq_loss, data_recon, perplexity = self.model(data)
+            
+            # Reconstruction Loss (L1 + Perceptual)
+            l1_loss = F.l1_loss(data_recon, data)
+            p_loss = self.perceptual_loss(data_recon, data)
+            recon_error = l1_loss + 0.1 * p_loss # Weight perceptual loss
+            
+            # Total Loss
+            loss = recon_error + vq_loss
             
             loss.backward()
             train_loss += loss.item()
-            train_mse += mse.item()
-            train_kld += kld.item()
+            train_recon_error += recon_error.item()
+            train_perplexity += perplexity.item()
             
             self.optimizer.step()
             
-            progress_bar.set_postfix({'loss': loss.item() / len(data)})
+            progress_bar.set_postfix({'loss': loss.item(), 'recon': recon_error.item(), 'ppl': perplexity.item()})
             
             if self.dry_run:
                 break
         
-        avg_loss = train_loss / len(self.train_loader.dataset)
-        print(f"====> Epoch {epoch+1}: Average Train Loss: {avg_loss:.4f}")
+        avg_loss = train_loss / len(self.train_loader)
+        print(f"====> Epoch {epoch+1}: Avg Loss: {avg_loss:.4f}")
         return avg_loss
 
     def validate(self, epoch):
         self.model.eval()
         val_loss = 0
+        val_recon_error = 0
+        val_perplexity = 0
         
         with torch.no_grad():
-            for data in self.val_loader:
+            for data, _ in self.val_loader:
                 data = data.to(self.device)
-                recon_batch, mu, logvar = self.model(data)
-                loss, _, _ = self.model.loss_function(recon_batch, data, mu, logvar, beta=self.beta)
+                vq_loss, data_recon, perplexity = self.model(data)
+                l1_loss = F.l1_loss(data_recon, data)
+                p_loss = self.perceptual_loss(data_recon, data)
+                recon_error = l1_loss + 0.1 * p_loss
+                loss = recon_error + vq_loss
+                
                 val_loss += loss.item()
+                val_recon_error += recon_error.item()
+                val_perplexity += perplexity.item()
                 
                 if self.dry_run:
                     break
         
-        avg_loss = val_loss / len(self.val_loader.dataset)
-        print(f"====> Epoch {epoch+1}: Average Val Loss: {avg_loss:.4f}")
+        avg_loss = val_loss / len(self.val_loader)
+        print(f"====> Epoch {epoch+1}: Val Loss: {avg_loss:.4f}")
         return avg_loss
 
     def train(self):
@@ -92,7 +116,7 @@ class Trainer:
             # Save best model
             if val_loss < best_loss:
                 best_loss = val_loss
-                torch.save(self.model.state_dict(), "checkpoints/vae_m4_best.pth")
+                torch.save(self.model.state_dict(), "checkpoints/vqvae_best.pth")
                 print(f"Saved best model with val loss: {best_loss:.4f}")
             
             if self.dry_run:
