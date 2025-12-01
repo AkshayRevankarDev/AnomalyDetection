@@ -2,17 +2,17 @@ import torch
 import numpy as np
 import matplotlib.pyplot as plt
 import os
-from src.model.vqvae import VQVAE
+from src.model.vqgan import VQGAN
 from src.data.factory import MedicalDatasetFactory
 from src.analytics.post_process import PostProcessor
 from PIL import Image
 
 class AnomalyDetector:
-    def __init__(self, config, model_path="checkpoints/vqvae_best.pth"):
+    def __init__(self, config, model_path="checkpoints/vqgan_best.pth"):
         self.config = config
         self.device = torch.device(config['training']['device'])
         
-        self.model = VQVAE(
+        self.model = VQGAN(
             num_hiddens=config['vqvae']['num_hiddens'],
             num_residual_hiddens=config['vqvae']['num_residual_hiddens'],
             num_embeddings=config['vqvae']['num_embeddings'],

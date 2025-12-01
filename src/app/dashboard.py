@@ -3,13 +3,21 @@ import torch
 import numpy as np
 from PIL import Image
 import os
+import sys
 import yaml
 import matplotlib.pyplot as plt
 import seaborn as sns
 
+# Add project root to sys.path
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
+
 from src.engine.anomaly_detector import AnomalyDetector
 from src.model.classifier import TumorClassifier
 from src.analytics.recommendations import ClinicalLogic
+from src.analytics.gradcam import GradCAM
+from src.model.transformer import LatentTransformer
+from src.model.vqgan import VQGAN
+import cv2
 
 # Page Config
 st.set_page_config(
@@ -28,8 +36,8 @@ config = load_config()
 # Load Models (Cached)
 @st.cache_resource
 def load_models():
-    # 1. Anomaly Detector (VQ-VAE)
-    detector = AnomalyDetector(config, model_path="checkpoints/vqvae_best.pth")
+    # 1. Anomaly Detector (VQ-GAN)
+    detector = AnomalyDetector(config, model_path="checkpoints/vqgan_best.pth")
     
     # 2. Tumor Classifier (ResNet18)
     classifier = TumorClassifier(num_classes=4)
@@ -42,15 +50,45 @@ def load_models():
     classifier.to(config['training']['device'])
     classifier.eval()
     
-    return detector, classifier
+    # 3. Latent Transformer
+    transformer = LatentTransformer(config['transformer'])
+    if os.path.exists("checkpoints/transformer_best.pth"):
+        transformer.load_state_dict(torch.load("checkpoints/transformer_best.pth", map_location=config['training']['device']))
+    
+    transformer.to(config['training']['device'])
+    transformer.eval()
+    
+    return detector, classifier, transformer
 
-detector, classifier = load_models()
+detector, classifier, transformer = load_models()
 
 # Sidebar
 st.sidebar.title("🩻 AI Radiologist")
 st.sidebar.info("MedAnomaly Suite V3.0")
 uploaded_file = st.sidebar.file_uploader("Upload Brain MRI", type=["jpg", "jpeg", "png"])
 confidence_threshold = st.sidebar.slider("Anomaly Threshold", 0.0, 1.0, 0.5)
+
+st.sidebar.divider()
+st.sidebar.subheader("✨ Generative AI")
+if st.sidebar.button("Dream Mode (Generate Patient)"):
+    with st.spinner("Dreaming..."):
+        # Generate
+        device = config['training']['device']
+        idx = torch.randint(0, config['transformer']['vocab_size'], (1, 1)).to(device)
+        
+        with torch.no_grad():
+            generated_indices = transformer.generate(idx, max_new_tokens=255, temperature=1.0)
+            
+            # Decode with VQGAN (Accessing internal model from detector)
+            vqgan = detector.model
+            z_q = vqgan.quantizer._embedding(generated_indices).view(1, 16, 16, 128)
+            z_q = z_q.permute(0, 3, 1, 2)
+            
+            fake_img = vqgan.decoder(z_q)
+            fake_img_np = fake_img.squeeze().cpu().numpy()
+            
+            st.sidebar.image(fake_img_np, caption="Synthetic Patient", use_container_width=True)
+            st.sidebar.success("Generated!")
 
 # Main Layout
 st.title("🧠 Neuro-Oncology Dashboard")
@@ -110,6 +148,20 @@ if uploaded_file is not None:
         color = "red" if plan['Risk Level'] == "High" else "orange" if plan['Risk Level'] == "Medium" else "green"
         st.markdown(f"<h2 style='color:{color};'>{plan['Diagnosis']}</h2>", unsafe_allow_html=True)
         st.write(f"**Confidence:** {confidence:.2%}")
+        
+        # Grad-CAM Visualization
+        st.write("### 🔍 Explainable AI (Grad-CAM)")
+        gradcam = GradCAM(classifier.model, classifier.model.layer4)
+        heatmap = gradcam(input_tensor, class_idx=predicted.item())
+        
+        # Overlay heatmap on original image
+        # Resize image to match heatmap if needed, but GradCAM output is already resized to input size (128x128)
+        # We need to use the original image (which might be different size) or the transformed tensor
+        # Let's use the transformed tensor for consistency
+        img_np = input_tensor.squeeze().cpu().numpy()
+        overlay = GradCAM.overlay_heatmap(img_np, heatmap, alpha=0.4)
+        
+        st.image(overlay, caption="Model Attention Map", use_container_width=True)
         
         st.divider()
         

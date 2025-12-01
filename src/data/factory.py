@@ -28,9 +28,9 @@ class MedicalDatasetFactory:
             normal_pattern = ["NORMAL"]
             sick_pattern = ["PNEUMONIA"]
         elif dataset_type == "BRAIN":
-            # Assuming standard Kaggle Brain MRI structure: 'no' (healthy), 'yes' (tumor)
-            normal_pattern = ["no", "NO"]
-            sick_pattern = ["yes", "YES"]
+            # Combined dataset: Standard 'no/yes' AND 'brain_mri_4class'
+            normal_pattern = ["no", "NO", "notumor"]
+            sick_pattern = ["yes", "YES", "glioma", "meningioma", "pituitary"]
         else:
             raise ValueError(f"Unknown dataset_type: {dataset_type}")
             
