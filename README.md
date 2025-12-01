@@ -1,68 +1,91 @@
-# VAE Anomaly Detection for Medical Imaging
+# MedAnomaly Suite V3.0: The AI Radiologist 🧠
 
-This project implements a Variational Autoencoder (VAE) for anomaly detection in Chest X-Rays, optimized for Apple Silicon (MPS).
+**A Hospital-Grade Neuro-Oncology Dashboard powered by Generative AI.**
 
-## Prerequisites
+This system acts as an intelligent assistant for radiologists, capable of detecting brain tumors, classifying their type, and providing actionable clinical recommendations. It runs locally on Apple Silicon (M-Series) hardware.
 
-- Python 3.10+
-- Kaggle Account (for dataset)
+## 🚀 Key Features
 
-## Setup
+### 1. High-Fidelity Anomaly Detection
+*   **Core**: Vector Quantized Variational Autoencoder (VQ-VAE).
+*   **Resolution**: 256x256 (Clinical Grade).
+*   **Technique**: Uses **SSIM (Structural Similarity Index)** and **Perceptual Loss** to generate precise anomaly heatmaps, highlighting tumor regions without noise.
 
-1.  **Clone the repository**
-    ```bash
-    git clone <your-repo-url>
-    cd Patern_recognition
-    ```
+### 2. Automated Diagnosis Engine
+*   **Core**: ResNet18 Classifier.
+*   **Performance**: **99.08% Accuracy**.
+*   **Classes**:
+    *   No Tumor
+    *   Glioma
+    *   Meningioma
+    *   Pituitary Tumor
 
-2.  **Install Dependencies**
-    ```bash
-    pip install -r requirements.txt
-    ```
+### 3. Clinical Logic Module
+*   Translates AI predictions into structured reports:
+    *   **Risk Level** (High/Medium/Low)
+    *   **Immediate Actions** (e.g., "Urgent Oncology Referral")
+    *   **Follow-up Protocols**
 
-3.  **Data Setup**
-    You need the "Chest X-Ray Images (Pneumonia)" dataset from Kaggle.
-    
-    **Option A: Automatic Download (Recommended)**
-    1.  Get your Kaggle API credentials:
-        - Go to Kaggle Settings -> API -> Create New Token.
-        - This downloads `kaggle.json`.
-    2.  Place `kaggle.json` in `~/.kaggle/kaggle.json` OR set environment variables:
-        ```bash
-        export KAGGLE_USERNAME=your_username
-        export KAGGLE_KEY=your_key
-        ```
-    3.  Run the setup script:
-        ```bash
-        python scripts/download_data.py
-        ```
+### 4. Interactive Dashboard
+*   Built with **Streamlit**.
+*   Provides a side-by-side view of the original scan and the AI-generated heatmap.
+*   Displays real-time diagnosis and confidence scores.
 
-    **Option B: Manual Download**
-    1.  Download from [Kaggle](https://www.kaggle.com/datasets/paultimothymooney/chest-xray-pneumonia).
-    2.  Extract to `data/raw` so the structure is:
-        ```
-        data/raw/chest_xray/train/...
-        data/raw/chest_xray/test/...
-        ```
+---
 
-## Usage
+## 🛠️ Installation & Setup
 
-### Training
-To train the model (default 20 epochs):
+### Prerequisites
+*   Mac with Apple Silicon (M1/M2/M3/M4).
+*   Python 3.10+.
+
+### 1. Clone the Repository
 ```bash
-python main.py --mode train
+git clone https://github.com/AkshayRevankarDev/AnomalyDetection.git
+cd AnomalyDetection
 ```
-Checkpoints are saved to `checkpoints/`.
 
-### Inference
-To detect anomalies in a specific image:
+### 2. Install Dependencies
 ```bash
-python main.py --mode inference --image path/to/image.jpeg
+pip install -r requirements.txt
 ```
-This generates `inference_result.png`.
 
-## Project Structure
-- `src/`: Source code (model, data loader, trainer).
-- `configs/`: Configuration files.
-- `scripts/`: Helper scripts.
-- `data/`: Data directory (ignored by git).
+### 3. Download Data (Optional for Inference)
+The system comes with pre-trained weights (`checkpoints/`). If you want to retrain:
+```bash
+# Downloads the 4-class Brain MRI dataset from Kaggle
+kaggle datasets download -d masoudnickparvar/brain-tumor-mri-dataset -p data/raw/brain_mri_4class --unzip
+```
+
+---
+
+## 🖥️ Usage
+
+### Launch the Dashboard
+The easiest way to use the system is via the web interface:
+
+```bash
+./run_app.sh
+```
+This will open `http://localhost:8501` in your browser.
+
+### Manual Inference (CLI)
+To run the VQ-VAE anomaly detector on a single image:
+```bash
+python main.py --mode inference --image path/to/scan.jpg
+```
+
+---
+
+## 📂 Project Structure
+
+*   `src/app/`: Streamlit dashboard code.
+*   `src/model/`: PyTorch definitions for VQ-VAE and ResNet18.
+*   `src/engine/`: Training loops and inference logic.
+*   `src/analytics/`: Clinical logic, t-SNE, and post-processing (SSIM).
+*   `checkpoints/`: Pre-trained model weights.
+
+---
+
+## 👨‍⚕️ Disclaimer
+This tool is for **research and educational purposes only**. It is not a certified medical device and should not be used for primary diagnosis without physician supervision.
