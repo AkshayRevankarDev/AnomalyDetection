@@ -1,48 +1,34 @@
+# Data
+data/raw/
+data/processed/
+
+# Checkpoints (Large weights)
+checkpoints/*.pth
+!checkpoints/.gitkeep
+
+# Outputs
+outputs/*
+!outputs/.gitkeep
+
 # Python
 __pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
+*.pyc
 
-# Virtual Environment
+# Environment & Secrets
+.env
+.venv
 venv/
 env/
-ENV/
-.env
+
+# OS Specific
+.DS_Store
 
 # IDEs
 .vscode/
 .idea/
-.DS_Store
 
-# Project Specific
-/data/
-checkpoints/
-*.pth
-*.png
-logs/
-
-# Secrets
-kaggle.json
-secrets.yaml
-
-# User Exclusions
-ARCHITECTURE.md
-test_image.jpg
-temp_upload.png
+# Reports (Optional - usually we want code, but if report is generated artifact, maybe ignore pdfs/aux/log)
+*.pdf
+*.log
+*.aux
+*.out

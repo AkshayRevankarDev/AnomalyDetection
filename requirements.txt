@@ -1,10 +1,11 @@
 torch
 torchvision
+streamlit
+fpdf
 matplotlib
+seaborn
+scikit-image
 numpy
-scikit-learn
-tqdm
+pandas
 pyyaml
 opencv-python
-streamlit
-seaborn

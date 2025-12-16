@@ -1,0 +1,140 @@
+\documentclass[final]{article}
+
+\usepackage{nips_2017}
+% \usepackage[margin=1.5in]{geometry} % Adding geometry for reasonable margins since nips style is gone
+
+\usepackage[utf8]{inputenc} % allow utf-8 input
+\usepackage[T1]{fontenc}    % use 8-bit T1 fonts
+\usepackage{hyperref}       % hyperlinks
+\usepackage{url}            % simple URL typesetting
+\usepackage{booktabs}       % professional-quality tables
+\usepackage{amsfonts}       % blackboard math symbols
+\usepackage{amsmath}        % for \text and other math commands
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{float}
+
+\title{Anomaly Detection in Healthcare Diagnostics using Image Synthesis: The "MedAnomaly Suite"}
+
+
+\author{
+  Sai Theja~Bajjuri\thanks{Equal contribution}, Akshay Mohan~Revankar\footnotemark[1]  \text{ and Rohan~Marar\footnotemark[1]}\\
+  Group \#: 19 \\
+  University at Buffalo\\
+  Buffalo, NY 14260 \\
+  \texttt{\{saith, akshaymo, rohanmar\}@buffalo.edu} \\
+}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+Detecting and interpreting abnormalities in medical images remains challenging due to the wide variability in pathological appearance and the limited availability of labeled data. In this work, we propose a multi-modal framework for anomaly detection and counterfactual reconstruction in brain magnetic resonance imaging (MRI). Our approach leverages a Vector-Quantized Variational Autoencoder (VQ-VAE) trained exclusively on healthy brain scans to learn a discrete latent representation of normal anatomical structure. When presented with tumor-affected scans, deviations from the learned healthy distribution manifest as localized reconstruction errors, enabling unsupervised anomaly detection and spatial localization. To further enhance interpretability, the detected abnormal scans are optionally processed by a supervised convolutional classifier to identify tumor categories. Additionally, we employ a Transformer-based generative model that utilizes self-attention and contextual latent information to synthesize a plausible healthy reconstruction of the tumor-affected brain, providing a counterfactual representation of normal anatomy. Qualitative results demonstrate that the proposed framework effectively highlights anomalous regions and produces anatomically coherent reconstructions, illustrating the potential of combining generative modeling and attention mechanisms for interpretable medical image analysis.
+\end{abstract}
+
+{\section{Introduction}}\label{sec:intro}
+Medical image analysis plays a critical role in the diagnosis and treatment of neurological disorders, particularly in the detection of brain tumors from magnetic resonance imaging (MRI). Traditional supervised learning approaches for tumor detection rely heavily on large, accurately labeled datasets, which are costly to obtain and often limited in clinical settings. Moreover, discriminative classifiers typically provide only categorical predictions, offering limited insight into the underlying structure of abnormalities or their deviation from normal anatomy.
+
+An alternative paradigm treats tumor detection as an anomaly detection problem, where pathological regions are modeled as deviations from the distribution of healthy tissue. In this setting, models are trained exclusively on normal data to learn a representation of healthy anatomy, and abnormalities are identified when test samples cannot be adequately explained by this learned distribution. Reconstruction-based methods, particularly autoencoder variants, have been widely explored for this purpose, as reconstruction errors can serve as spatial indicators of anomalous regions.
+
+Recent advances in generative modeling have further improved the expressiveness of such approaches. Vector-Quantized Variational Autoencoders (VQ-VAEs) introduce discrete latent representations that enable stable training and preserve fine-grained structural information, making them well-suited for modeling complex anatomical patterns. However, while reconstruction error can localize anomalies, it does not directly address the question of how the anatomy might appear in the absence of pathology.
+
+To address this limitation, we propose a multimodal framework that combines unsupervised anomaly detection with generative counterfactual reconstruction. First, a VQ-VAE is trained on healthy brain MRI scans to learn a discrete latent representation of normal anatomy. Tumor-affected scans are then reconstructed using this model, and regions with elevated reconstruction error are interpreted as anomalies. Optionally, a supervised convolutional neural network can be applied to the detected anomalous regions to classify tumor types, providing complementary diagnostic information.
+
+Beyond detection and classification, we employ a Transformer-based generative model to synthesize a plausible healthy version of a tumor-affected brain scan. By leveraging self-attention mechanisms and contextual information from the learned latent representations, the Transformer models global anatomical dependencies and produces a counterfactual reconstruction that approximates normal brain structure. This reconstruction is not intended as a clinical ground truth, but rather as an interpretable representation of how the anatomy may appear in the absence of pathology.
+
+The primary contributions of this work are threefold: (i) an unsupervised anomaly detection framework based on VQ-VAE reconstruction error for localizing brain tumors, (ii) an optional supervised classification component for tumor identification, and (iii) a Transformer-based approach for counterfactual healthy brain reconstruction that enhances interpretability. Together, these components form an integrated pipeline for interpretable anomaly detection and reconstruction in medical imaging.\\
+
+\section{Related Works}\label{sec:past}
+
+Anomaly detection in medical imaging has been widely studied, particularly for brain tumor identification from MRI scans. Early approaches primarily relied on supervised convolutional neural networks (CNNs), which achieve strong performance when large labeled datasets are available \cite{havaei2017brain}. However, such methods often struggle with generalization to rare tumor types and provide limited interpretability regarding the nature of detected abnormalities.
+
+To mitigate the dependence on labeled data, unsupervised and semi-supervised anomaly detection methods have gained increasing attention. Reconstruction-based models, including autoencoders and variational autoencoders (VAEs), model the distribution of healthy tissue and identify abnormalities through elevated reconstruction error \cite{schlegl2017unsupervised}. This paradigm has been successfully applied to brain MRI, where reconstruction error maps highlight lesion regions without requiring explicit tumor annotations \cite{baur2021autoencoders}.
+
+Standard VAEs, however, often produce overly smooth reconstructions that limit precise anomaly localization. Vector-Quantized Variational Autoencoders (VQ-VAEs) address this limitation by learning discrete latent representations that preserve fine structural details \cite{van2017neural}. Discrete latent models have been shown to better capture anatomical patterns and improve unsupervised anomaly detection in medical imaging \cite{zimmerer2019unsupervised}. Our work builds on this line of research by training a VQ-VAE exclusively on healthy brain MRI scans and treating tumors as out-of-distribution regions.
+
+Attention-based models, particularly Transformers, have recently been adopted for medical image analysis due to their ability to model long-range dependencies and global context \cite{dosovitskiy2020image}. While these models have demonstrated strong performance in supervised segmentation and classification tasks, their use in unsupervised or generative medical imaging remains limited.
+
+In contrast to prior work, our approach combines reconstruction-based anomaly detection with generative counterfactual reconstruction. While existing methods focus primarily on localization or classification, few address the problem of synthesizing a plausible healthy version of a tumor-affected brain. Related ideas in counterfactual generation for medical imaging have been explored in limited settings \cite{pawlowski2020deep}, but remain underdeveloped for brain tumor analysis. By integrating VQ-VAE-based anomaly detection with a Transformer-driven generative model, our framework provides both localized anomaly identification and interpretable healthy reconstructions, distinguishing it from prior approaches.
+
+\section{Data}
+We utilized the Kaggle Brain Tumor MRI Dataset curated by Masoud Nickparvar. This dataset contains 7,023 human brain MRI images classified into four classes: glioma, meningioma, no tumor, and pituitary.
+
+\subsection{Data Characteristics}
+The images are 2D MRI scans originally of varying dimensions, which we resized to a uniform resolution of $256 \times 256$ pixels. The pixel values were normalized to the range $[-1, 1]$ to facilitate stable training of the generative models.
+
+\subsection{Data Splits}
+For the anomaly detection task, we adopted a one-versus-rest strategy. The "No Tumor" class was treated as the normal (in-distribution) class for training the VQ-VAE and Transformer. We reserved a subset of the "No Tumor" data for validation. The tumor classes (glioma, meningioma, pituitary) were used exclusively during the testing phase to evaluate the system's ability to detect out-of-distribution anomalies.
+For the supervised classifier component, we utilized the entire dataset, splitting it into training (80\%), validation (10\%), and testing (10\%) sets to ensure robust performance across all tumor types.
+
+\section{Methods}\label{sec:approach}
+Our MedAnomaly Suite consists of three integrated components: a VQ-VAE for anomaly detection, a Latent Transformer for counterfactual generation ("Dream Mode"), and a ResNet18 Classifier for diagnosis.
+
+\subsection{Vector Quantized Variational Autoencoder (VQ-VAE)}
+The core of our anomaly detection system is a VQ-VAE. Unlike standard VAEs that assume a continuous latent space, VQ-VAEs learn a discrete latent representation, which better captures the structural regularities of medical images (Van den Oord et al., 2017).
+\begin{enumerate}
+    \item \textbf{Encoder}: The encoder network $E$ maps the input image $x \in \mathbb{R}^{H \times W \times C}$ to a continuous latent representation $z_e$.
+    \item \textbf{Quantization}: We perform nearest-neighbor lookup in a learnable codebook $Z = \{e_k\}_{k=1}^K$ to map $z_e$ to discrete indices. This discrete representation $z_q$ effectively compresses the image into a sequence of tokens representing anatomical features.
+    \item \textbf{Decoder}: The decoder $G$ reconstructs the image $x'$ from the quantized latents $z_q$.
+\end{enumerate}
+During inference, when a tumor-containing image is passed through the VQ-VAE (trained only on healthy brains), the model struggles to reconstruct the tumor region, resulting in a high local reconstruction error. We calculate the pixel-wise difference between the input and reconstruction to generate an "Anomaly Heatmap."
+
+\subsection{Latent Transformer ("Dream Mode")}
+To generate a healthy counterfactual of a diseased brain, we train a GPT-style Transformer on the discrete indices produced by the VQ-VAE codebook. The Transformer learns the autoregressive probability distribution of healthy latent codes.
+Given a partial or masked sequence of tokens (e.g., removing the tokens corresponding to the tumor), the Transformer samples the most likely "healthy" tokens to fill the gap. The VQ-VAE decoder then translates these new tokens back into pixel space. This results in a synthesized image that looks like the patient's brain but without the tumor.
+
+\subsection{Supervised Classification}
+To provide actionable diagnostic information, we implement a ResNet18 classifier. The network is modified to have 4 output neurons corresponding to the dataset classes. We employ Cross-Entropy Loss and train the model using transfer learning, fine-tuning feature maps to specific MRI textures.
+
+\section{Experiments and Results}\label{sec:expts}
+
+\subsection{Anomaly Detection and Localization}
+Our VQ-VAE successfully learned the distribution of healthy brain anatomy. Figure \ref{fig:inference} demonstrates the model's performance on a test sample. The first column shows the input scan with a tumor. The second column shows the VQ-VAE reconstruction; notably, the model attempts to "heal" the tumor or blurs it because it has no codebook entries for tumorous tissue. The third column displays the Structural Similarity Index (SSIM) heatmap, which clearly localizes the anomaly.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=1.0\linewidth]{inference_result.png}
+	\caption{Anomaly Detection Results: (Left) Input Scan, (Middle) VQ-VAE Reconstruction, (Right) Anomaly Heatmap localization.}\label{fig:inference}
+\end{figure}
+
+\subsection{Counterfactual Generation ("Dream Mode")}
+Using the Latent Transformer, we generated "healthy" versions of tumor-affected brains. Figure \ref{fig:dream} shows a direct comparison. This visualization aids interpretability by showing physicians exactly how the anatomy is distorted by the mass.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.4\linewidth]{dream_patient.png}
+	\caption{"Dream Mode": Synthesizing a healthy counterfactual (right) from a patient scan (left).}\label{fig:dream}
+\end{figure}
+
+\subsection{Classification Performance}
+The ResNet18 classifier achieved a test accuracy of \textbf{99.08\%} across the four classes. Figure \ref{fig:tsne} visualizes the learned feature space using t-SNE, showing clear separation between the tumor types and healthy tissue.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.6\linewidth]{tsne_plot.png}
+	\caption{t-SNE visualization of the ResNet18 feature space, showing distinct clusters for each tumor class.}\label{fig:tsne}
+\end{figure}
+
+\subsection{System Dashboard}
+We integrated these models into a Streamlit dashboard for real-time clinical use. The interface allows radiologists to upload scans and receive immediate visual and categorical feedback.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.8\linewidth]{final_report_card.png}
+	\caption{The MedAnomaly Dashboard Interface.}\label{fig:dashboard}
+\end{figure}
+
+\section{Limitations and ethical implications}\label{sec:limits}
+While the results are promising, our approach has limitations. The resolution is fixed at $256 \times 256$, which may miss micro-metastases visible in higher-resolution scans. Furthermore, generative models can hallucinate artifacts; the "Dream Mode" image is synthetic and must not be used as ground truth for surgery planning. Ethically, AI tools in radiology must remain decision-support systems, not autonomous diagnosticians, to avoid liability and ensure patient safety.
+
+\section{Conclusion and future work}\label{sec:concl}
+We presented a comprehensive neuro-oncology suite combining VQ-VAE for anomaly detection, Transformers for healthy tissue synthesis, and supervised classification. Our system provides not just a diagnosis, but interpretable visual evidence of where and why the diagnosis was made. Future work includes extending the model to 3D volumetric MRI scans and integrating multi-modal data such as patient clinical history to improve robustness.
+
+\medskip
+
+\small
+\bibliographystyle{plainnat}
+\bibliography{Report_template}
+
+\end{document}

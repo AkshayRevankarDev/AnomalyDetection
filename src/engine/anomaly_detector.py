@@ -97,6 +97,6 @@ class AnomalyDetector:
             plt.axis('off')
             
         plt.tight_layout()
-        plt.savefig(output_path)
+        plt.savefig(output_path, bbox_inches='tight', pad_inches=0.5)
         print(f"Report card saved to {output_path}")
         plt.close()

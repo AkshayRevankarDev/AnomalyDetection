@@ -15,7 +15,7 @@ class MedicalDatasetFactory:
             ])
         elif dataset_type == "BRAIN":
             return transforms.Compose([
-                transforms.CenterCrop(200), # Remove black borders common in MRI
+                transforms.Resize((128, 128)), # Full brain mode (Zoomed Out)
                 transforms.Resize((height, width)),
                 transforms.ToTensor(),
             ])

@@ -59,21 +59,28 @@ def main():
             print("Please provide an image path for inference using --image")
             return
         detector = AnomalyDetector(config, model_path="checkpoints/vqgan_best.pth")
-        original, recon, diff = detector.detect(args.image)
+        input_np, recon_np, raw_diff, ssim_map, smoothed_map = detector.detect(args.image)
         
         # Save output for verification
         import matplotlib.pyplot as plt
-        plt.figure(figsize=(10, 3))
+        plt.figure(figsize=(12, 4))
         plt.subplot(1, 3, 1)
-        plt.imshow(original, cmap='gray')
-        plt.title("Original")
+        plt.imshow(input_np, cmap='gray')
+        plt.title("Original Scan")
+        plt.axis('off')
+        
         plt.subplot(1, 3, 2)
-        plt.imshow(recon, cmap='gray')
-        plt.title("Reconstruction")
+        plt.imshow(recon_np, cmap='gray')
+        plt.title("VQ-VAE Reconstruction")
+        plt.axis('off')
+
         plt.subplot(1, 3, 3)
-        plt.imshow(diff, cmap='hot')
-        plt.title("Difference")
-        plt.savefig("inference_result.png")
+        plt.imshow(smoothed_map, cmap='hot')
+        plt.title("Anomaly Heatmap")
+        plt.axis('off')
+        
+        plt.tight_layout()
+        plt.savefig("inference_result.png", bbox_inches='tight', pad_inches=0.5)
         print("Inference result saved to inference_result.png")
 
     elif args.mode == "transformer-train":
@@ -121,8 +128,23 @@ def main():
             fake_img = vqgan.decoder(z_q)
             
             # Save
-            plt.imsave("dream_patient.png", fake_img.squeeze().cpu().numpy(), cmap='gray')
-            print("Dream saved to dream_patient.png")
+            # Save with padding (Zoomed Out view)
+            fig, ax = plt.subplots(figsize=(6, 6))
+            # Set background color to black for MRI context or white for document
+            fig.patch.set_facecolor('white') 
+            ax.imshow(fake_img.squeeze().cpu().numpy(), cmap='gray')
+            
+            # Zoom out effect by setting limits larger than image size (256x256)
+            # Center is 128,128. Range is 0-256. 
+            # If we set limits to -50 to 306, we add 50px padding on all sides.
+            padding = 100
+            ax.set_xlim(-padding, 256 + padding)
+            ax.set_ylim(256 + padding, -padding) # Invert y axis for images
+            
+            ax.axis('off')
+            plt.savefig("dream_patient.png", bbox_inches='tight', pad_inches=0.1)
+            plt.close()
+            print("Zoomed-out dream saved to dream_patient.png")
 
 if __name__ == "__main__":
     main()

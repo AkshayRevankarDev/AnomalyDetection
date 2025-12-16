@@ -59,6 +59,6 @@ class LatentSpaceVisualizer:
         plt.ylabel('t-SNE 2')
         
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
-        plt.savefig(output_path)
+        plt.savefig(output_path, bbox_inches='tight', pad_inches=0.5)
         plt.close()
         print(f"t-SNE plot saved to {output_path}")
